@@ -1,0 +1,28 @@
+version: 2.1
+
+orbs:
+  aws-cli: circleci/aws-cli@2.0
+
+jobs:
+  batch:
+    executor: aws-cli/default
+    steps:
+      - checkout
+      - aws-cli/setup
+      - run:
+          command: |
+            REPOS=$(aws ecr describe-repositories --query 'repositories[].repositoryName' --output text)
+            for REPO in $REPOS; do
+                DIGESTS=$(aws ecr list-images --repository-name $REPO --filter tagStatus=UNTAGGED --query 'imageIds[].imageDigest' --output text)
+                for DIGEST in $DIGESTS; do
+                    aws ecr batch-delete-image --repository-name $REPO --image-ids imageDigest=$DIGEST > /dev/null
+                    echo Deleted
+                done
+            done
+          name: Delete Untagged Images
+
+workflows:
+  version: 2
+  batch:
+    jobs:
+      - batch
